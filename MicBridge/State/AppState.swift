@@ -11,6 +11,7 @@ final class AppState: ObservableObject {
     @Published private(set) var monitorDevice: AudioDevice?
     @Published private(set) var isBridgeEnabled = false
     @Published var isMuted = false
+    @Published var isMonitorEnabled = true
     @Published var errorMessage: String?
     @Published private(set) var devices: [AudioDevice] = []
     @Published private(set) var inputLevel: Float = 0
@@ -32,6 +33,7 @@ final class AppState: ObservableObject {
         static let outputUID = "outputDeviceUID"
         static let monitorUID = "monitorDeviceUID"
         static let wasEnabled = "wasBridgeEnabled"
+        static let monitorEnabled = "isMonitorEnabled"
     }
 
     init() {
@@ -39,6 +41,9 @@ final class AppState: ObservableObject {
         preferredOutputUID = defaults.string(forKey: Keys.outputUID)
         preferredMonitorUID = defaults.string(forKey: Keys.monitorUID)
         userWantsBridgeRunning = defaults.bool(forKey: Keys.wasEnabled)
+        if defaults.object(forKey: Keys.monitorEnabled) != nil {
+            isMonitorEnabled = defaults.bool(forKey: Keys.monitorEnabled)
+        }
 
         devices = deviceManager.allDevices()
         applyActiveDevicesFromPreferred()
@@ -94,8 +99,22 @@ final class AppState: ObservableObject {
 
     func toggleMute() {
         isMuted.toggle()
-        bridge.setMuted(isMuted)
+        applyAudibility()
         if isMuted { inputLevel = 0 }
+    }
+
+    func toggleMonitor() {
+        isMonitorEnabled.toggle()
+        persist()
+        applyAudibility()
+    }
+
+    /// isMuted / isMonitorEnabled を bridge に反映する。
+    /// - output: isMuted のみ
+    /// - monitor: isMuted または monitor 無効化どちらかで silence
+    private func applyAudibility() {
+        bridge.setOutputMuted(isMuted)
+        bridge.setMonitorMuted(isMuted || !isMonitorEnabled)
     }
 
     func selectInput(_ device: AudioDevice?) {
@@ -120,6 +139,10 @@ final class AppState: ObservableObject {
         KeyboardShortcuts.onKeyDown(for: .toggleMute) { [weak self] in
             guard let self, self.isBridgeEnabled else { return }
             self.toggleMute()
+        }
+        KeyboardShortcuts.onKeyDown(for: .toggleMonitor) { [weak self] in
+            guard let self, self.isBridgeEnabled else { return }
+            self.toggleMonitor()
         }
     }
 
@@ -169,7 +192,7 @@ final class AppState: ObservableObject {
                 outputDeviceID: output.id,
                 monitorDeviceID: monitorDevice?.id
             )
-            bridge.setMuted(isMuted)
+            applyAudibility()
             isBridgeEnabled = true
             errorMessage = nil
         } catch {
@@ -190,6 +213,7 @@ final class AppState: ObservableObject {
         defaults.set(preferredOutputUID, forKey: Keys.outputUID)
         defaults.set(preferredMonitorUID, forKey: Keys.monitorUID)
         defaults.set(userWantsBridgeRunning, forKey: Keys.wasEnabled)
+        defaults.set(isMonitorEnabled, forKey: Keys.monitorEnabled)
     }
 }
 
@@ -197,5 +221,9 @@ extension KeyboardShortcuts.Name {
     static let toggleMute = Self(
         "toggleMute",
         default: .init(.m, modifiers: [.control, .option, .shift])
+    )
+    static let toggleMonitor = Self(
+        "toggleMonitor",
+        default: .init(.n, modifiers: [.control, .option, .shift])
     )
 }

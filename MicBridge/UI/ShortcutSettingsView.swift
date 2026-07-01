@@ -8,6 +8,9 @@ struct ShortcutSettingsView: View {
                 LabeledContent("ミュート トグル") {
                     KeyboardShortcuts.Recorder(for: .toggleMute)
                 }
+                LabeledContent("モニター オン/オフ") {
+                    KeyboardShortcuts.Recorder(for: .toggleMonitor)
+                }
             }
             Text("ブリッジ有効時のみ動作します。")
                 .font(.caption)
@@ -15,7 +18,7 @@ struct ShortcutSettingsView: View {
                 .padding(.top, 4)
         }
         .formStyle(.grouped)
-        .frame(width: 380)
+        .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
     }
 }

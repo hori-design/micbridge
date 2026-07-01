@@ -6,6 +6,7 @@ enum AudioBridgeError: LocalizedError {
     case setDeviceFailed(OSStatus, String)
     case engineStartFailed(String)
     case audioUnitUnavailable
+    case invalidFormat
 
     var errorDescription: String? {
         switch self {
@@ -15,6 +16,8 @@ enum AudioBridgeError: LocalizedError {
             return "\(role) エンジンの起動に失敗"
         case .audioUnitUnavailable:
             return "AudioUnit を取得できませんでした"
+        case .invalidFormat:
+            return "オーディオフォーマットが無効です"
         }
     }
 }
@@ -24,13 +27,20 @@ final class AudioBridge {
     private var outputEngine: AVAudioEngine?
     private var monitorEngine: AVAudioEngine?
 
-    private var outputPlayer: AVAudioPlayerNode?
-    private var monitorPlayer: AVAudioPlayerNode?
     private var outputMixer: AVAudioMixerNode?
+    private var monitorMixer: AVAudioMixerNode?
+    private var outputRing: AudioRingBuffer?
+    private var monitorRing: AudioRingBuffer?
 
     private(set) var isRunning = false
-
     var onLevelUpdate: ((Float) -> Void)?
+
+    /// リングバッファ容量（フレーム）。48kHz なら約 85ms 分。
+    /// レイテンシではなく overrun 耐性のための容量なので、大きめに取っても OK。
+    private static let ringCapacityFrames = 4096
+
+    /// デバイスに要求する I/O バッファサイズ。128 frames @ 48kHz ≒ 2.7ms。
+    private static let preferredDeviceBufferFrames: UInt32 = 128
 
     func start(
         inputDeviceID: AudioDeviceID,
@@ -39,122 +49,133 @@ final class AudioBridge {
     ) throws {
         stop()
 
+        // --- Input engine ---
         let inputEngine = AVAudioEngine()
         try setDevice(engine: inputEngine, isInput: true, deviceID: inputDeviceID, role: "入力")
         let inputFormat = inputEngine.inputNode.outputFormat(forBus: 0)
-
         guard inputFormat.channelCount > 0, inputFormat.sampleRate > 0 else {
             throw AudioBridgeError.engineStartFailed("入力（フォーマット取得失敗）")
         }
+        guard !inputFormat.isInterleaved else {
+            throw AudioBridgeError.invalidFormat
+        }
+        let channelCount = Int(inputFormat.channelCount)
 
+        // --- Ring buffers ---
+        let outputRing = AudioRingBuffer(
+            capacityFrames: Self.ringCapacityFrames,
+            channelCount: channelCount
+        )
+        let monitorRing: AudioRingBuffer? = (monitorDeviceID != nil)
+            ? AudioRingBuffer(capacityFrames: Self.ringCapacityFrames, channelCount: channelCount)
+            : nil
+
+        // --- Output engine ---
         let outputEngine = AVAudioEngine()
         try setDevice(engine: outputEngine, isInput: false, deviceID: outputDeviceID, role: "出力")
-        let outputPlayer = AVAudioPlayerNode()
-        outputEngine.attach(outputPlayer)
+        let outputSource = AVAudioSourceNode(format: inputFormat) { [outputRing] _, _, frameCount, ablPtr in
+            outputRing.read(into: ablPtr, frames: Int(frameCount))
+            return noErr
+        }
+        outputEngine.attach(outputSource)
         let outputMixer = outputEngine.mainMixerNode
-        outputEngine.connect(outputPlayer, to: outputMixer, format: inputFormat)
+        outputEngine.connect(outputSource, to: outputMixer, format: inputFormat)
 
-        var monitorEngine: AVAudioEngine?
-        var monitorPlayer: AVAudioPlayerNode?
-        if let monitorID = monitorDeviceID {
+        // --- Monitor engine ---
+        var monitorEngineOptional: AVAudioEngine?
+        var monitorMixerOptional: AVAudioMixerNode?
+        if let monitorID = monitorDeviceID, let ring = monitorRing {
             let engine = AVAudioEngine()
             try setDevice(engine: engine, isInput: false, deviceID: monitorID, role: "モニター")
-            let player = AVAudioPlayerNode()
-            engine.attach(player)
-            engine.connect(player, to: engine.mainMixerNode, format: inputFormat)
-            monitorEngine = engine
-            monitorPlayer = player
+            let source = AVAudioSourceNode(format: inputFormat) { [ring] _, _, frameCount, ablPtr in
+                ring.read(into: ablPtr, frames: Int(frameCount))
+                return noErr
+            }
+            engine.attach(source)
+            let mixer = engine.mainMixerNode
+            engine.connect(source, to: mixer, format: inputFormat)
+            monitorEngineOptional = engine
+            monitorMixerOptional = mixer
         }
 
-        inputEngine.inputNode.installTap(
-            onBus: 0,
-            bufferSize: 256,
-            format: inputFormat
-        ) { [weak self, weak outputPlayer, weak monitorPlayer] buffer, _ in
-            if let player = outputPlayer, player.engine != nil {
-                player.scheduleBuffer(buffer, completionHandler: nil)
-            }
-            if let player = monitorPlayer, player.engine != nil {
-                player.scheduleBuffer(buffer, completionHandler: nil)
-            }
+        // --- Input sink ---
+        let sink = AVAudioSinkNode { [weak self, outputRing, monitorRing] _, frameCount, ablPtr in
+            let frames = Int(frameCount)
+            outputRing.write(from: ablPtr, frames: frames)
+            monitorRing?.write(from: ablPtr, frames: frames)
             if let handler = self?.onLevelUpdate {
-                let level = Self.rmsLevel(from: buffer)
+                let level = Self.rmsLevel(audioBufferList: ablPtr, frames: frames)
                 DispatchQueue.main.async { handler(level) }
             }
+            return noErr
         }
+        inputEngine.attach(sink)
+        inputEngine.connect(inputEngine.inputNode, to: sink, format: inputFormat)
 
+        // --- Start engines ---
         outputEngine.prepare()
-        do {
-            try outputEngine.start()
-        } catch {
-            throw AudioBridgeError.engineStartFailed("出力")
-        }
-        outputPlayer.play()
+        do { try outputEngine.start() } catch { throw AudioBridgeError.engineStartFailed("出力") }
 
-        if let monitorEngine, let monitorPlayer {
+        if let monitorEngine = monitorEngineOptional {
             monitorEngine.prepare()
-            do {
-                try monitorEngine.start()
-            } catch {
-                throw AudioBridgeError.engineStartFailed("モニター")
-            }
-            monitorPlayer.play()
+            do { try monitorEngine.start() } catch { throw AudioBridgeError.engineStartFailed("モニター") }
         }
 
         inputEngine.prepare()
-        do {
-            try inputEngine.start()
-        } catch {
-            throw AudioBridgeError.engineStartFailed("入力")
-        }
+        do { try inputEngine.start() } catch { throw AudioBridgeError.engineStartFailed("入力") }
 
         self.inputEngine = inputEngine
         self.outputEngine = outputEngine
-        self.monitorEngine = monitorEngine
-        self.outputPlayer = outputPlayer
-        self.monitorPlayer = monitorPlayer
+        self.monitorEngine = monitorEngineOptional
         self.outputMixer = outputMixer
+        self.monitorMixer = monitorMixerOptional
+        self.outputRing = outputRing
+        self.monitorRing = monitorRing
         self.isRunning = true
     }
 
     func stop() {
-        if let inputEngine {
-            inputEngine.inputNode.removeTap(onBus: 0)
-            inputEngine.stop()
-        }
-        outputPlayer?.stop()
         outputEngine?.stop()
-        monitorPlayer?.stop()
         monitorEngine?.stop()
+        inputEngine?.stop()
 
         inputEngine = nil
         outputEngine = nil
         monitorEngine = nil
-        outputPlayer = nil
-        monitorPlayer = nil
         outputMixer = nil
+        monitorMixer = nil
+        outputRing = nil
+        monitorRing = nil
         isRunning = false
     }
 
-    func setMuted(_ muted: Bool) {
+    func setOutputMuted(_ muted: Bool) {
         outputMixer?.outputVolume = muted ? 0 : 1
     }
 
-    private static func rmsLevel(from buffer: AVAudioPCMBuffer) -> Float {
-        guard let channelData = buffer.floatChannelData else { return 0 }
-        let frameLength = Int(buffer.frameLength)
-        guard frameLength > 0 else { return 0 }
-        let channelCount = Int(buffer.format.channelCount)
+    func setMonitorMuted(_ muted: Bool) {
+        monitorMixer?.outputVolume = muted ? 0 : 1
+    }
+
+    private static func rmsLevel(
+        audioBufferList: UnsafePointer<AudioBufferList>,
+        frames: Int
+    ) -> Float {
+        guard frames > 0 else { return 0 }
+        let mutable = UnsafeMutablePointer<AudioBufferList>(mutating: audioBufferList)
+        let bufferList = UnsafeMutableAudioBufferListPointer(mutable)
         var sumSquares: Float = 0
-        for channel in 0..<channelCount {
-            let samples = channelData[channel]
-            for frame in 0..<frameLength {
-                let sample = samples[frame]
-                sumSquares += sample * sample
+        var totalSamples = 0
+        for buffer in bufferList {
+            guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
+            for i in 0..<frames {
+                let s = data[i]
+                sumSquares += s * s
             }
+            totalSamples += frames
         }
-        let mean = sumSquares / Float(frameLength * channelCount)
-        return sqrt(mean)
+        if totalSamples == 0 { return 0 }
+        return sqrt(sumSquares / Float(totalSamples))
     }
 
     private func setDevice(
@@ -179,11 +200,14 @@ final class AudioBridge {
         if status != noErr {
             throw AudioBridgeError.setDeviceFailed(status, role)
         }
-        Self.setPreferredBufferFrameSize(deviceID: deviceID, frames: 128)
+        Self.setPreferredBufferFrameSize(
+            deviceID: deviceID,
+            frames: Self.preferredDeviceBufferFrames
+        )
     }
 
     /// デバイスのハードウェア I/O バッファサイズを短く要求する。
-    /// デバイスがサポート範囲外の場合は暗黙に無視される。
+    /// サポート範囲外は暗黙に無視される。
     private static func setPreferredBufferFrameSize(deviceID: AudioDeviceID, frames: UInt32) {
         var value = frames
         var address = AudioObjectPropertyAddress(

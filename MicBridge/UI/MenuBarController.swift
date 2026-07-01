@@ -82,6 +82,15 @@ final class MenuBarController {
         muteItem.isEnabled = appState.isBridgeEnabled
         menu.addItem(muteItem)
 
+        let monitorToggleItem = NSMenuItem(
+            title: appState.isMonitorEnabled ? "モニターを停止" : "モニターを再開",
+            action: #selector(toggleMonitor),
+            keyEquivalent: ""
+        )
+        monitorToggleItem.target = self
+        monitorToggleItem.isEnabled = appState.isBridgeEnabled && appState.monitorDevice != nil
+        menu.addItem(monitorToggleItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let inputItem = NSMenuItem(title: "入力デバイス", action: nil, keyEquivalent: "")
@@ -185,6 +194,10 @@ final class MenuBarController {
 
     @objc private func toggleMute() {
         appState.toggleMute()
+    }
+
+    @objc private func toggleMonitor() {
+        appState.toggleMonitor()
     }
 
     @objc private func selectInput(_ sender: NSMenuItem) {
