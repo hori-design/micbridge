@@ -3,6 +3,7 @@ import Combine
 import CoreAudio
 import Foundation
 import KeyboardShortcuts
+import ServiceManagement
 
 @MainActor
 final class AppState: ObservableObject {
@@ -12,6 +13,7 @@ final class AppState: ObservableObject {
     @Published private(set) var isBridgeEnabled = false
     @Published var isMuted = false
     @Published var isMonitorEnabled = true
+    @Published private(set) var isLaunchAtLoginEnabled = false
     @Published var errorMessage: String?
     @Published private(set) var devices: [AudioDevice] = []
     @Published private(set) var inputLevel: Float = 0
@@ -44,6 +46,7 @@ final class AppState: ObservableObject {
         if defaults.object(forKey: Keys.monitorEnabled) != nil {
             isMonitorEnabled = defaults.bool(forKey: Keys.monitorEnabled)
         }
+        isLaunchAtLoginEnabled = SMAppService.mainApp.status == .enabled
 
         devices = deviceManager.allDevices()
         applyActiveDevicesFromPreferred()
@@ -107,6 +110,21 @@ final class AppState: ObservableObject {
         isMonitorEnabled.toggle()
         persist()
         applyAudibility()
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            isLaunchAtLoginEnabled = SMAppService.mainApp.status == .enabled
+            errorMessage = nil
+        } catch {
+            errorMessage = "起動時登録の変更に失敗: \(error.localizedDescription)"
+            isLaunchAtLoginEnabled = SMAppService.mainApp.status == .enabled
+        }
     }
 
     /// isMuted / isMonitorEnabled を bridge に反映する。

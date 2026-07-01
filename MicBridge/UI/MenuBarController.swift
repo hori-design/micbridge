@@ -97,8 +97,7 @@ final class MenuBarController {
         inputItem.submenu = deviceSubmenu(
             devices: appState.inputDevices,
             selected: appState.inputDevice,
-            action: #selector(selectInput(_:)),
-            allowNone: false
+            action: #selector(selectInput(_:))
         )
         menu.addItem(inputItem)
 
@@ -106,8 +105,7 @@ final class MenuBarController {
         outputItem.submenu = deviceSubmenu(
             devices: appState.outputDevices,
             selected: appState.outputDevice,
-            action: #selector(selectOutput(_:)),
-            allowNone: false
+            action: #selector(selectOutput(_:))
         )
         menu.addItem(outputItem)
 
@@ -115,12 +113,20 @@ final class MenuBarController {
         monitorItem.submenu = deviceSubmenu(
             devices: appState.outputDevices,
             selected: appState.monitorDevice,
-            action: #selector(selectMonitor(_:)),
-            allowNone: true
+            action: #selector(selectMonitor(_:))
         )
         menu.addItem(monitorItem)
 
         menu.addItem(NSMenuItem.separator())
+
+        let launchItem = NSMenuItem(
+            title: "Mac 起動時に自動起動",
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        launchItem.target = self
+        launchItem.state = appState.isLaunchAtLoginEnabled ? .on : .off
+        menu.addItem(launchItem)
 
         let shortcutItem = NSMenuItem(
             title: "ショートカット設定…",
@@ -156,20 +162,10 @@ final class MenuBarController {
     private func deviceSubmenu(
         devices: [AudioDevice],
         selected: AudioDevice?,
-        action: Selector,
-        allowNone: Bool
+        action: Selector
     ) -> NSMenu {
         let submenu = NSMenu()
         submenu.autoenablesItems = false
-
-        if allowNone {
-            let none = NSMenuItem(title: "なし", action: action, keyEquivalent: "")
-            none.target = self
-            none.state = (selected == nil) ? .on : .off
-            none.representedObject = nil as AudioDevice?
-            submenu.addItem(none)
-            submenu.addItem(NSMenuItem.separator())
-        }
 
         if devices.isEmpty {
             let empty = NSMenuItem(title: "(利用可能なデバイスなし)", action: nil, keyEquivalent: "")
@@ -212,6 +208,10 @@ final class MenuBarController {
         appState.selectMonitor(sender.representedObject as? AudioDevice)
     }
 
+
+    @objc private func toggleLaunchAtLogin() {
+        appState.setLaunchAtLogin(!appState.isLaunchAtLoginEnabled)
+    }
 
     @objc private func openShortcutSettings() {
         if let window = shortcutWindow {
