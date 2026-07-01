@@ -12,9 +12,9 @@
 		A2AAAAAAAAAAAAAAAAAA0003 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA0003 /* AppState.swift */; };
 		A2AAAAAAAAAAAAAAAAAA0004 /* AudioBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA0004 /* AudioBridge.swift */; };
 		A2AAAAAAAAAAAAAAAAAA0005 /* AudioDeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA0005 /* AudioDeviceManager.swift */; };
-		A2AAAAAAAAAAAAAAAAAA0009 /* AudioRingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA000E /* AudioRingBuffer.swift */; };
 		A2AAAAAAAAAAAAAAAAAA0006 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA0006 /* MenuBarController.swift */; };
 		A2AAAAAAAAAAAAAAAAAA0008 /* ShortcutSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA000D /* ShortcutSettingsView.swift */; };
+		A2AAAAAAAAAAAAAAAAAA0009 /* AudioRingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA000E /* AudioRingBuffer.swift */; };
 		A2AAAAAAAAAAAAAAAAAA000A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA000A /* Assets.xcassets */; };
 		A2AAAAAAAAAAAAAAAAAA000B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1AAAAAAAAAAAAAAAAAA000B /* Preview Assets.xcassets */; };
 		A2AAAAAAAAAAAAAAAAAA0100 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = ACAAAAAAAAAAAAAAAAAA0001 /* KeyboardShortcuts */; };
@@ -26,14 +26,14 @@
 		A1AAAAAAAAAAAAAAAAAA0003 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A1AAAAAAAAAAAAAAAAAA0004 /* AudioBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBridge.swift; sourceTree = "<group>"; };
 		A1AAAAAAAAAAAAAAAAAA0005 /* AudioDeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDeviceManager.swift; sourceTree = "<group>"; };
-		A1AAAAAAAAAAAAAAAAAA000E /* AudioRingBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRingBuffer.swift; sourceTree = "<group>"; };
 		A1AAAAAAAAAAAAAAAAAA0006 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
-		A1AAAAAAAAAAAAAAAAAA000D /* ShortcutSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSettingsView.swift; sourceTree = "<group>"; };
 		A1AAAAAAAAAAAAAAAAAA0008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1AAAAAAAAAAAAAAAAAA0009 /* MicBridge.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MicBridge.entitlements; sourceTree = "<group>"; };
 		A1AAAAAAAAAAAAAAAAAA000A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1AAAAAAAAAAAAAAAAAA000B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		A1AAAAAAAAAAAAAAAAAA000C /* MicBridge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MicBridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1AAAAAAAAAAAAAAAAAA000D /* ShortcutSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutSettingsView.swift; sourceTree = "<group>"; };
+		A1AAAAAAAAAAAAAAAAAA000E /* AudioRingBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRingBuffer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -356,7 +356,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "design.hori.app.micbridge";
+				PRODUCT_BUNDLE_IDENTIFIER = design.hori.app.micbridge;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -384,7 +384,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "design.hori.app.micbridge";
+				PRODUCT_BUNDLE_IDENTIFIER = design.hori.app.micbridge;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
