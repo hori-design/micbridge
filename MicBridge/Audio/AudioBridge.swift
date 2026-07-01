@@ -33,7 +33,6 @@ final class AudioBridge {
     private var monitorRing: AudioRingBuffer?
 
     private(set) var isRunning = false
-    var onLevelUpdate: ((Float) -> Void)?
 
     /// リングバッファ容量（フレーム）。48kHz なら約 85ms 分。
     /// レイテンシではなく overrun 耐性のための容量なので、大きめに取っても OK。
@@ -99,14 +98,10 @@ final class AudioBridge {
         }
 
         // --- Input sink ---
-        let sink = AVAudioSinkNode { [weak self, outputRing, monitorRing] _, frameCount, ablPtr in
+        let sink = AVAudioSinkNode { [outputRing, monitorRing] _, frameCount, ablPtr in
             let frames = Int(frameCount)
             outputRing.write(from: ablPtr, frames: frames)
             monitorRing?.write(from: ablPtr, frames: frames)
-            if let handler = self?.onLevelUpdate {
-                let level = Self.rmsLevel(audioBufferList: ablPtr, frames: frames)
-                DispatchQueue.main.async { handler(level) }
-            }
             return noErr
         }
         inputEngine.attach(sink)
@@ -155,27 +150,6 @@ final class AudioBridge {
 
     func setMonitorMuted(_ muted: Bool) {
         monitorMixer?.outputVolume = muted ? 0 : 1
-    }
-
-    private static func rmsLevel(
-        audioBufferList: UnsafePointer<AudioBufferList>,
-        frames: Int
-    ) -> Float {
-        guard frames > 0 else { return 0 }
-        let mutable = UnsafeMutablePointer<AudioBufferList>(mutating: audioBufferList)
-        let bufferList = UnsafeMutableAudioBufferListPointer(mutable)
-        var sumSquares: Float = 0
-        var totalSamples = 0
-        for buffer in bufferList {
-            guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
-            for i in 0..<frames {
-                let s = data[i]
-                sumSquares += s * s
-            }
-            totalSamples += frames
-        }
-        if totalSamples == 0 { return 0 }
-        return sqrt(sumSquares / Float(totalSamples))
     }
 
     private func setDevice(

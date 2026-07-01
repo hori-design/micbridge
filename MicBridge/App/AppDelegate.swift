@@ -26,7 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        appState.stopBridge()
+        // ブリッジを止めるだけ。userWantsBridgeRunning は保持して次回起動時に自動再開させる。
+        appState.bridge.stop()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

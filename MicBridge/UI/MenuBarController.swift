@@ -8,6 +8,7 @@ final class MenuBarController {
     private let appState: AppState
     private var cancellables = Set<AnyCancellable>()
     private var shortcutWindow: NSWindow?
+    private var refreshScheduled = false
 
     init(appState: AppState) {
         self.appState = appState
@@ -19,14 +20,24 @@ final class MenuBarController {
 
     private func observeState() {
         appState.objectWillChange
-            .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                DispatchQueue.main.async {
-                    self?.updateStatusImage()
-                    self?.rebuildMenu()
-                }
+                self?.scheduleRefresh()
             }
             .store(in: &cancellables)
+    }
+
+    /// objectWillChange は @Published の set 前に発火するので、
+    /// 状態反映後の値を読むために次の runloop に defer する。
+    /// バーストは合流させて 1 回だけ再構築する。
+    private func scheduleRefresh() {
+        guard !refreshScheduled else { return }
+        refreshScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.refreshScheduled = false
+            self.updateStatusImage()
+            self.rebuildMenu()
+        }
     }
 
     private func updateStatusImage() {

@@ -16,7 +16,6 @@ final class AppState: ObservableObject {
     @Published private(set) var isLaunchAtLoginEnabled = false
     @Published var errorMessage: String?
     @Published private(set) var devices: [AudioDevice] = []
-    @Published private(set) var inputLevel: Float = 0
 
     private var preferredInputUID: String?
     private var preferredOutputUID: String?
@@ -59,10 +58,6 @@ final class AppState: ObservableObject {
             Task { @MainActor in self?.handleDeviceListChanged() }
         }
         deviceManager.startObservingDeviceChanges()
-        bridge.onLevelUpdate = { [weak self] level in
-            guard let self else { return }
-            self.inputLevel = self.isMuted ? 0 : level
-        }
     }
 
     deinit {
@@ -103,7 +98,6 @@ final class AppState: ObservableObject {
     func toggleMute() {
         isMuted.toggle()
         applyAudibility()
-        if isMuted { inputLevel = 0 }
     }
 
     func toggleMonitor() {
@@ -223,7 +217,6 @@ final class AppState: ObservableObject {
     private func teardownBridge() {
         bridge.stop()
         isBridgeEnabled = false
-        inputLevel = 0
     }
 
     private func persist() {
