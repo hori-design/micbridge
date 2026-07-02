@@ -43,16 +43,31 @@ final class MenuBarController {
     private func updateStatusImage() {
         guard let button = statusItem.button else { return }
         let symbolName: String
+        let tint: NSColor?
+
         if appState.isMuted, appState.isBridgeEnabled {
             symbolName = "mic.slash.fill"
+            tint = nil
         } else if appState.isBridgeEnabled {
             symbolName = "mic.fill"
+            tint = .systemGreen
         } else {
             symbolName = "mic"
+            tint = nil
         }
-        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "MicBridge")
-        image?.isTemplate = true
-        button.image = image
+
+        guard let baseImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "MicBridge") else {
+            return
+        }
+        if let tint {
+            let config = NSImage.SymbolConfiguration(paletteColors: [tint])
+            let colored = baseImage.withSymbolConfiguration(config) ?? baseImage
+            colored.isTemplate = false
+            button.image = colored
+        } else {
+            baseImage.isTemplate = true
+            button.image = baseImage
+        }
         button.toolTip = tooltip()
     }
 
